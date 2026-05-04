@@ -1,4 +1,4 @@
-package com.example.oreo2.sales;
+package com.example.oreo2.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
