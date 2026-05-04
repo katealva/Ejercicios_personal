@@ -1,3 +1,95 @@
+# Oreo Insight Factory — Backend (UTEC Hackathon #1)
+
+## Integrantes
+
+| Nombre completo | Código UTEC |
+|-----------------|-------------|
+| Owen Atamari    | _<llenar>_  |
+| Kate Alva       | _<llenar>_  |
+
+## Cómo ejecutar el proyecto
+
+### Requisitos
+- Java 21
+- Maven (incluido el wrapper `./mvnw`)
+
+### Variables de entorno necesarias
+Definir antes de arrancar (también pueden ir en un `.env` cargado por el shell):
+
+```bash
+export JWT_SECRET="cambia-esta-clave-larga-de-al-menos-32-caracteres-para-hackathon-oreo"
+export GITHUB_TOKEN="<tu_PAT_de_github_con_models>"
+export GITHUB_MODELS_URL="https://models.github.ai/inference/chat/completions"
+export MODEL_ID="openai/gpt-5-mini"
+export MAIL_HOST="smtp.gmail.com"
+export MAIL_PORT="587"
+export MAIL_USERNAME="<tu_email@gmail.com>"
+export MAIL_PASSWORD="<app_password_de_gmail>"
+```
+
+> Nota: la app arranca con placeholders por defecto; el LLM y el envío de email solo funcionan con valores reales.
+
+### Levantar la app
+```bash
+./mvnw spring-boot:run
+```
+
+Quedará escuchando en `http://localhost:8080`. La consola H2 está en `http://localhost:8080/h2-console` (JDBC URL `jdbc:h2:mem:oreo`, usuario `sa`, password vacío).
+
+### Correr los tests
+```bash
+./mvnw test
+```
+
+Los 5 tests obligatorios del agregador viven en `src/test/java/com/example/oreo2/service/SalesAggregationServiceTest.java`.
+
+## Cómo correr el Postman workflow
+
+1. Importar la colección `oreo-insight-factory.postman_collection.json` (en la raíz del repo) desde Postman → File → Import.
+2. Ajustar la variable de colección `baseUrl` si la app no corre en `http://localhost:8080`.
+3. Abrir el Collection Runner, seleccionar la colección y hacer click en "Run". El runner ejecuta los 13 requests en orden:
+   - Register/Login del usuario CENTRAL y BRANCH (Miraflores)
+   - 5 ventas seed mezclando sucursales
+   - GET /sales con CENTRAL (ve todo) y con BRANCH (ve solo Miraflores)
+   - POST /sales/summary/weekly con BRANCH → debe responder 202 con `requestId`
+   - Intento de venta a otra sucursal con BRANCH → debe responder 403
+   - DELETE de la primera venta con CENTRAL → debe responder 204
+
+Todos los pasos tienen asserts; un Run verde valida la entrega.
+
+## Implementación Asíncrona
+
+El endpoint `POST /sales/summary/weekly` no bloquea al cliente: responde **202 Accepted** en milisegundos y procesa el resumen en un thread pool aparte. El flujo es:
+
+```
+ReportController                           ApplicationContext        ReportListener (@Async)
+       │                                          │                          │
+   POST /weekly  ───valida permisos──┐            │                          │
+       │                             │            │                          │
+       │                  publishEvent(ReportRequestedEvent)                 │
+       │                             │            │                          │
+       │  ◄── 202 Accepted ──────────┘            │                          │
+                                                  │  dispatch en thread      │
+                                                  │  "report-async-N"  ─────►│
+                                                                             │ 1) calcular agregados (SalesAggregationService)
+                                                                             │ 2) llamar GitHub Models (LlmClient)
+                                                                             │ 3) enviar email (EmailService)
+```
+
+### Piezas clave
+- **`Oreo2Application` con `@EnableAsync`** activa el motor de tasks asíncronas.
+- **`config/AsyncConfig`** define un `ThreadPoolTaskExecutor` llamado `reportTaskExecutor` (core 2, max 5, queue 25, prefijo `report-async-`). Eso permite ver en logs cuál thread está procesando qué reporte.
+- **`event/ReportRequestedEvent`** es el payload (requestId, from, to, branch, emailTo, requestedBy, requestedAt).
+- **`controller/ReportController`** valida (BRANCH solo puede pedir su sucursal), genera `requestId` y llama `ApplicationEventPublisher.publishEvent(...)`.
+- **`service/ReportListener`** lleva `@EventListener` + `@Async("reportTaskExecutor")`. Spring lo invoca en un thread del pool sin bloquear el publisher. Adentro orquesta agregados → LLM → email y captura cualquier excepción para que un fallo no rompa la JVM (el cliente ya recibió su 202).
+
+### Decisión: sin persistencia de estado
+La rúbrica no exige un endpoint de status, así que `requestId` se genera en memoria y se devuelve solo en la respuesta inmediata. Si más tarde se quiere consultar el progreso, basta con agregar una entidad `ReportRequest` y actualizarla desde el listener — no rompe nada de lo actual.
+
+---
+
+# Spec original de la Hackathon
+
 Hackathon #1: Oreo Insight Factory 🍪📈
 Descripción General
 ¿A quién no le gusta meter una Oreo 🍪 en un vaso con leche 🥛?
