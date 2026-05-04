@@ -30,17 +30,61 @@
         <java.version>21</java.version>
     </properties>
     <dependencies>
+        <!--
+            CORREGIDO: el artefacto "spring-boot-h2console" no existe.
+            La consola H2 viene gratis con la dependencia "h2" + un starter web.
+            Solo se activa con "spring.h2.console.enabled=true" en application.properties.
+            Reemplazado por el starter web correcto que veras a continuacion.
+        -->
+
+        <!--
+            CORREGIDO: el artefacto "spring-boot-starter-webmvc" no existe.
+            El nombre real del starter web en Spring Boot, en todas las versiones,
+            es "spring-boot-starter-web". Internamente trae Spring Web MVC y Tomcat.
+        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-h2console</artifactId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
+
+        <!--
+            AGREGADO: Spring Security.
+            Es la base de la autenticacion JWT que el hackathon exige.
+            Trae los filtros de seguridad, el BCryptPasswordEncoder para
+            hashear passwords, las anotaciones @PreAuthorize para autorizar
+            por rol, y todo lo necesario para construir SecurityConfig.
+        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc</artifactId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!--
+            AGREGADO: Validation.
+            Activa las anotaciones @NotBlank, @Email, @Size, @Pattern en los DTOs.
+            El README pide validar usernames con longitud y regex, password >=8
+            caracteres, formato de email, etc. Sin este starter las anotaciones
+            estan presentes pero no se ejecutan al recibir un request.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!--
+            AGREGADO: Mail.
+            Lo necesita la persona B para enviar el resumen semanal al destinatario.
+            Trae JavaMailSender preconfigurado a partir de las propiedades
+            spring.mail.* en application.properties (host, port, username, password).
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
         <dependency>
@@ -48,19 +92,61 @@
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+
+        <!--
+            AGREGADO: las tres dependencias de JJWT (Java JWT).
+            Son la libreria que te permite emitir y validar tokens JWT.
+            Por que tres archivos en vez de uno: la libreria sigue un patron
+            api/impl donde "api" expone solo interfaces que tu codigo importa,
+            "impl" es la implementacion interna que se carga en runtime, y
+            "jackson" es el adaptador para serializar el payload del token a JSON.
+            Las tres son necesarias siempre. La version 0.12.x es la actual estable.
+        -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
-            <scope>test</scope>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.12.6</version>
         </dependency>
         <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+            CORREGIDO: los starters "spring-boot-starter-data-jpa-test" y
+            "spring-boot-starter-webmvc-test" NO existen como artefactos
+            independientes. El correcto es "spring-boot-starter-test", uno solo
+            que ya incluye JUnit 5, Mockito, AssertJ, MockMvc, soporte para
+            @DataJpaTest, @WebMvcTest, @SpringBootTest, y todo lo demas.
+        -->
+        <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            AGREGADO: complemento pequeno que permite mockear usuarios autenticados
+            en los tests con anotaciones como @WithMockUser. Util para tu companero B
+            si quiere probar endpoints protegidos sin generar un JWT real cada vez.
+        -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
